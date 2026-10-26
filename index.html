@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>আমল-নামা</title>
+
+  <!-- Tailwind CSS (needs internet) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Bangla font (shudhu pashe er vashmano lekha gulor jonno) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============ SLIDER AREA ============ */
+    /* --sw = ager frame er width. Center poster er size ei theke ashe, tai ager moto-i thakbe */
+    .stage {
+      --sw: min(100vw - 4rem, 76rem);
+      position: relative;
+      width: 100%;                       /* ekhon pura screen jure */
+      height: calc(var(--sw) / 2.7);
+      overflow: hidden;
+      perspective: 1600px;
+      user-select: none;
+      touch-action: pan-y;
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .stage { --sw: 100vw; height: calc(var(--sw) / 2.1); }
+      .slide { width: calc(var(--sw) * 0.72) !important; }
+      .nav-prev { left: calc(50% - var(--sw) / 2 + 0.5rem) !important; }
+      .nav-next { right: calc(50% - var(--sw) / 2 + 0.5rem) !important; }
+    }
+
+    /* Arrow button gulo ager jaygay-i thakbe */
+    .nav-prev { left: calc(50% - var(--sw) / 2 + 1.5rem); }
+    .nav-next { right: calc(50% - var(--sw) / 2 + 1.5rem); }
+
+    /* ============ EACH POSTER ============ */
+    .slide {
+      --d: 0;    /* dik: -1 = left, 0 = center, 1 = right */
+      --x: 0;    /* koto dure (poster width er %) */
+      --r: 0;    /* koto ghurbe (degree) */
+      --s: 1;    /* scale */
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: calc(var(--sw) * 0.56);
+      aspect-ratio: 16 / 9;
+      cursor: pointer;
+      transform:
+        translate(calc(-50% + var(--d) * var(--x) * 1%), -50%)
+        rotateY(calc(var(--d) * var(--r) * -1deg))
+        scale(var(--s));
+      transition:
+        transform 700ms ease-in-out,
+        opacity 700ms ease-in-out,
+        filter 400ms ease;
+      will-change: transform;
+    }
+
+    /* Center */
+    .slide[data-abs="0"] { --x: 0;   --r: 0;  --s: 1;    cursor: zoom-in; }
+
+    /* Prothom pashe (kache) */
+    .slide[data-abs="1"] {
+      --x: 82;  --r: 22; --s: 0.8;
+      opacity: 0.85;
+      filter: blur(3px) brightness(0.6) saturate(0.8);
+    }
+
+    /* Ditiyo pashe */
+    .slide[data-abs="2"] {
+      --x: 138; --r: 30; --s: 0.68;
+      opacity: 0.65;
+      filter: blur(5px) brightness(0.5) saturate(0.8);
+    }
+
+    /* Tritiyo pashe (screen er ekdom edge) */
+    .slide[data-abs="3"] {
+      --x: 178; --r: 34; --s: 0.58;
+      opacity: 0.4;
+      filter: blur(7px) brightness(0.45) saturate(0.8);
+    }
+
+    /* Aro dure (lukano) */
+    .slide[data-abs="4"] {
+      --x: 178; --r: 34; --s: 0.5;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Hover: side poster boro, bright, blur nei */
+    .slide[data-abs="1"]:hover {
+      --s: 0.86;
+      opacity: 1;
+      filter: blur(0) brightness(1) saturate(1);
+    }
+    .slide[data-abs="2"]:hover {
+      opacity: 0.9;
+      filter: blur(2px) brightness(0.8) saturate(1);
+    }
+
+    /* Inner card (3D tilt ekhane hoy) */
+    .card {
+      --rx: 0deg;
+      --ry: 0deg;
+      --mx: 50%;
+      --my: 50%;
+      position: absolute;
+      inset: 0;
+      border-radius: 1rem;
+      overflow: hidden;
+      transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry));
+      transition: transform 250ms ease-out;
+    }
+
+    /* Shine (cursor er sathe chole) */
+    .shine {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 300ms ease;
+      background: radial-gradient(circle at var(--mx) var(--my),
+                  rgba(255, 255, 255, 0.28), transparent 55%);
+    }
+    .slide[data-abs="0"] .card { box-shadow: 0 0 36px 0 rgba(129, 140, 248, 0.45); }
+    .slide[data-abs="0"]:hover .shine { opacity: 1; }
+
+    /* Side poster hover e arrow button */
+    .side-hint {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 300ms ease;
+      pointer-events: none;
+    }
+    .side-hint span {
+      position: absolute;
+      top: 50%;
+      width: 56px;
+      height: 56px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      line-height: 1;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(8px);
+      transform: translate(-50%, -50%);
+    }
+    .slide[data-side="right"] .side-hint span { left: 34%; }
+    .slide[data-side="left"]  .side-hint span { left: 66%; }
+    .slide[data-side="left"]  .side-hint span::before { content: "\2039"; }
+    .slide[data-side="right"] .side-hint span::before { content: "\203A"; }
+    .slide[data-abs="1"]:hover .side-hint { opacity: 1; }
+
+    /* ============ AMBIENT BACKGROUND ============ */
+    .amb {
+      position: absolute;
+      inset: -10%;
+      background-size: cover;
+      background-position: center;
+      filter: blur(70px) saturate(1.5);
+      opacity: 0;
+      transition: opacity 1000ms ease;
+    }
+
+    /* ============ FLOATING BANGLA WORDS ============ */
+    .float-word {
+      position: absolute;
+      white-space: nowrap;
+      font-family: "Hind Siliguri", sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      will-change: transform;
+      animation: floaty 9s ease-in-out infinite alternate;
+    }
+    @keyframes floaty {
+      from { transform: translateY(0)     rotate(var(--r)); }
+      to   { transform: translateY(-16px) rotate(calc(var(--r) + 3deg)); }
+    }
+
+    /* ============ PROGRESS BAR ============ */
+    @keyframes fill {
+      from { width: 0%; }
+      to   { width: 100%; }
+    }
+    .progress-run {
+      animation-name: fill;
+      animation-timing-function: linear;
+      animation-fill-mode: forwards;
+      animation-duration: 3s; /* JavaScript er INTERVAL onujayi nijei bodle jay */
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-white antialiased">
+
+  <!-- Peche er layer: poster er glow + vashmano Bangla lekha -->
+  <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+    <div id="amb0" class="amb"></div>
+    <div id="amb1" class="amb"></div>
+    <div id="words" class="absolute inset-0"></div>
+  </div>
+
+  <!-- Top bar -->
+  <header class="max-w-7xl mx-auto px-4 md:px-8 py-5 flex items-center justify-between">
+    <h1 class="text-4xl md:text-2xl font-bold tracking-wide">আমল-নামা</h1>
+    <span class="text-sm text-white/60">সত্য পরিচয় জানতে সাথে থাকুন</span>
+  </header>
+
+  <!-- Poster slider (ekhon full width) -->
+  <main class="pt-4 md:pt-10">
+
+    <div id="stage" class="stage">
+      <!-- Left button -->
+      <button id="prev" aria-label="Previous poster"
+        class="nav-prev absolute top-1/2 -translate-y-1/2 z-30
+               h-11 w-11 md:h-14 md:w-14 flex items-center justify-center
+               rounded-full bg-white/15 backdrop-blur-md border border-white/30
+               text-white text-2xl hover:bg-white/30 active:scale-95 transition">
+        &#10094;
+      </button>
+
+      <!-- Right button -->
+      <button id="next" aria-label="Next poster"
+        class="nav-next absolute top-1/2 -translate-y-1/2 z-30
+               h-11 w-11 md:h-14 md:w-14 flex items-center justify-center
+               rounded-full bg-white/15 backdrop-blur-md border border-white/30
+               text-white text-2xl hover:bg-white/30 active:scale-95 transition">
+        &#10095;
+      </button>
+
+      <!-- Posters are added here by JavaScript -->
+    </div>
+
+    <!-- Dots -->
+    <div id="dots" class="flex items-center justify-center gap-2 mt-6"></div>
+
+    <!-- Progress bar -->
+    <div class="mt-5 mx-auto w-48 h-1 rounded-full bg-white/20 overflow-hidden">
+      <div id="progress" class="h-full bg-white rounded-full"></div>
+    </div>
+
+    <!-- Small hint -->
+    <p class="text-center text-xs text-white/40 mt-4">Click for full screen view</p>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center text-white/50 text-sm py-10">
+    © 2026 আমল-নামা. All rights reserved.
+  </footer>
+
+  <!-- Full screen viewer (lightbox) -->
+  <div id="lightbox"
+       class="hidden fixed inset-0 z-50 items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+    <button id="lbClose" aria-label="Close"
+      class="absolute top-4 right-4 h-11 w-11 rounded-full bg-white/15 border border-white/30
+             text-white text-xl hover:bg-white/30 transition">&#10005;</button>
+
+    <button id="lbPrev" aria-label="Previous poster"
+      class="absolute left-3 md:left-8 top-1/2 -translate-y-1/2 h-11 w-11 md:h-14 md:w-14
+             rounded-full bg-white/15 border border-white/30 text-white text-2xl
+             hover:bg-white/30 transition">&#10094;</button>
+
+    <img id="lbImg" src="" alt=""
+         class="max-h-[88vh] max-w-[92vw] rounded-xl shadow-2xl select-none" />
+
+    <button id="lbNext" aria-label="Next poster"
+      class="absolute right-3 md:right-8 top-1/2 -translate-y-1/2 h-11 w-11 md:h-14 md:w-14
+             rounded-full bg-white/15 border border-white/30 text-white text-2xl
+             hover:bg-white/30 transition">&#10095;</button>
+  </div>
+
+  <script>
+    // ================== 1) YOUR POSTERS (serial ekhane) ==================
+    const posters = [
+      { src: "assets/maruf1.jpg",  alt: "Maruf poster 1" },
+      { src: "assets/sajid1.jpg",  alt: "Sajid poster 1" },
+      { src: "assets/shohag1.jpg", alt: "Shohag poster 1" },
+      { src: "assets/jimel1.jpg",  alt: "Jimel poster 1" },
+      { src: "assets/sadib1.jpg",  alt: "Sadib poster 1" },
+
+      { src: "assets/maruf2.jpg",  alt: "Maruf poster 2" },
+      { src: "assets/sajid2.jpg",  alt: "Sajid poster 2" },
+      { src: "assets/shohag2.jpg", alt: "Shohag poster 2" },
+      { src: "assets/jimel2.jpg",  alt: "Jimel poster 2" },
+      { src: "assets/sadib2.png",  alt: "Sadib poster 2" },
+    ];
+
+    // ================== 2) PECHONER VASHMANO BANGLA LEKHA ==================
+    // t = lekha | x = bam theke koto % | y = upor theke koto %
+    // s = size  | r = kon (degree)      | d = animation delay (sec)
+    // c = rong (na dile halka sada)
+    const words = [
+      { t: "আমল-নামা",       x: 3,  y: 60, s: 3.2, r: -8, d: 0 },
+      { t: "আসল পরিচয়",     x: 74, y: 58, s: 2.8, r: 6,  d: 1.5, c: "rgba(165,180,252,0.13)" },
+      { t: "গোপন তথ্য",      x: 6,  y: 76, s: 2.6, r: 5,  d: 3 },
+      { t: "সত্যের সন্ধানে", x: 68, y: 75, s: 3.0, r: -6, d: 2 },
+      { t: "মুখোশের আড়ালে", x: 2,  y: 90, s: 2.2, r: -4, d: 4,   c: "rgba(165,180,252,0.13)" },
+      { t: "অজানা গল্প",     x: 78, y: 90, s: 2.4, r: 4,  d: 0.8 },
+      { t: "নীরব সাক্ষী",    x: 24, y: 68, s: 1.8, r: 8,  d: 2.5 },
+      { t: "যা বলা হয়নি",   x: 28, y: 88, s: 2.0, r: -3, d: 3.5 },
+      { t: "সত্য উন্মোচন",   x: 42, y: 3,  s: 1.6, r: 0,  d: 1 },
+    ];
+
+    // ================== 3) SETTINGS ==================
+    const INTERVAL = 3000; // 3000 = 3 second (12 sec korte chaile 12000 likhun)
+
+    // ================== 4) SETUP ==================
+    const stage    = document.getElementById("stage");
+    const dotsBox  = document.getElementById("dots");
+    const progress = document.getElementById("progress");
+    const lb       = document.getElementById("lightbox");
+    const lbImg    = document.getElementById("lbImg");
+    const wordsBox = document.getElementById("words");
+    const ambs     = [document.getElementById("amb0"), document.getElementById("amb1")];
+    const n = posters.length;
+
+    let current = 0;
+    let timer = null;
+    let paused = false;
+    let lightboxOpen = false;
+    let ambFlip = 0;
+    let dragStartX = null;
+    let justDragged = false;
+
+    // Bangla vashmano lekha gulo banano
+    words.forEach((w) => {
+      const s = document.createElement("span");
+      s.className = "float-word";
+      s.textContent = w.t;
+      s.style.left = w.x + "%";
+      s.style.top = w.y + "%";
+      s.style.fontSize = `clamp(1.1rem, ${w.s}vw, ${w.s * 1.5}rem)`;
+      s.style.color = w.c || "rgba(255,255,255,0.08)";
+      s.style.setProperty("--r", w.r + "deg");
+      s.style.animationDelay = (w.d || 0) + "s";
+      wordsBox.appendChild(s);
+    });
+
+    // Create poster elements
+    const slides = posters.map((p, i) => {
+      const el = document.createElement("div");
+      el.className = "slide";
+      el.innerHTML = `
+        <div class="card">
+          <img src="${p.src}" alt="${p.alt}"
+               class="w-full h-full object-cover select-none"
+               draggable="false" />
+          <div class="shine"></div>
+        </div>
+        <div class="side-hint"><span></span></div>`;
+
+      const card = el.querySelector(".card");
+
+      // Click: center poster hole full screen, side poster hole center e ashbe
+      el.addEventListener("click", () => {
+        if (justDragged) return;
+        if (i === current) openLightbox();
+        else goTo(i);
+      });
+
+      // 3D tilt (shudhu center poster e)
+      el.addEventListener("mousemove", (e) => {
+        if (el.dataset.abs !== "0") return;
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width;   // 0 to 1
+        const y = (e.clientY - r.top) / r.height;   // 0 to 1
+        card.style.setProperty("--ry", ((x - 0.5) * 10).toFixed(2) + "deg");
+        card.style.setProperty("--rx", ((0.5 - y) * 8).toFixed(2) + "deg");
+        card.style.setProperty("--mx", (x * 100).toFixed(1) + "%");
+        card.style.setProperty("--my", (y * 100).toFixed(1) + "%");
+      });
+      el.addEventListener("mouseleave", () => {
+        card.style.setProperty("--rx", "0deg");
+        card.style.setProperty("--ry", "0deg");
+      });
+
+      stage.appendChild(el);
+      return el;
+    });
+
+    // Create dots
+    const dotsEls = posters.map((p, i) => {
+      const b = document.createElement("button");
+      b.setAttribute("aria-label", "Go to poster " + (i + 1));
+      b.className = "h-2.5 rounded-full transition-all duration-300";
+      b.addEventListener("click", () => goTo(i));
+      dotsBox.appendChild(b);
+      return b;
+    });
+
+    // ================== 5) DRAW CURRENT POSITIONS ==================
+    function render() {
+      slides.forEach((el, i) => {
+        // o: 0 = center, negative = left, positive = right
+        let o = i - current;
+        if (o > n / 2)  o -= n;
+        if (o < -n / 2) o += n;
+
+        const abs = Math.min(Math.abs(o), 4);   // 0,1,2,3 dekha jay | 4 = lukano
+
+        el.style.setProperty("--d", Math.sign(o));
+        el.dataset.abs  = abs;
+        el.dataset.side = o < 0 ? "left" : o > 0 ? "right" : "center";
+        el.style.zIndex = String(10 - abs);
+      });
+
+      dotsEls.forEach((d, i) => {
+        d.style.width = i === current ? "28px" : "10px";
+        d.style.backgroundColor = i === current ? "#ffffff" : "rgba(255,255,255,0.3)";
+      });
+
+      setAmbient();
+    }
+
+    // Peche blurred glow (2 ta layer crossfade kore)
+    function setAmbient() {
+      const incoming = ambs[ambFlip];
+      const outgoing = ambs[1 - ambFlip];
+      incoming.style.backgroundImage = `url("${posters[current].src}")`;
+      incoming.style.opacity = "0.35";
+      outgoing.style.opacity = "0";
+      ambFlip = 1 - ambFlip;
+    }
+
+    // ================== 6) MOVING ==================
+    function goTo(index) {
+      current = (index + n) % n;
+      render();
+      restartProgress();
+      if (!paused) startTimer();
+      if (lightboxOpen) lbImg.src = posters[current].src;
+    }
+    function next() { goTo(current + 1); }
+    function prev() { goTo(current - 1); }
+
+    // ================== 7) AUTO SLIDE ==================
+    function restartProgress() {
+      progress.classList.remove("progress-run");
+      void progress.offsetWidth; // restart the animation
+      progress.style.animationDuration = INTERVAL + "ms";
+      progress.classList.add("progress-run");
+      progress.style.animationPlayState = paused ? "paused" : "running";
+    }
+
+    function startTimer() {
+      clearInterval(timer);
+      restartProgress();
+      timer = setInterval(next, INTERVAL);
+    }
+
+    function pauseAuto() {
+      paused = true;
+      clearInterval(timer);
+      progress.style.animationPlayState = "paused";
+    }
+
+    function resumeAuto() {
+      if (lightboxOpen) return;
+      paused = false;
+      startTimer();
+    }
+
+    // ================== 8) FULL SCREEN VIEWER ==================
+    function openLightbox() {
+      lightboxOpen = true;
+      lbImg.src = posters[current].src;
+      lbImg.alt = posters[current].alt;
+      lb.classList.remove("hidden");
+      lb.classList.add("flex");
+      pauseAuto();
+    }
+
+    function closeLightbox() {
+      lightboxOpen = false;
+      lb.classList.add("hidden");
+      lb.classList.remove("flex");
+      resumeAuto();
+    }
+
+    document.getElementById("lbClose").addEventListener("click", closeLightbox);
+    document.getElementById("lbPrev").addEventListener("click", prev);
+    document.getElementById("lbNext").addEventListener("click", next);
+    lb.addEventListener("click", (e) => {
+      if (e.target === lb) closeLightbox(); // bairer kalo jaygay click
+    });
+
+    // ================== 9) CONTROLS ==================
+    document.getElementById("next").addEventListener("click", next);
+    document.getElementById("prev").addEventListener("click", prev);
+
+    // Mouse slider er upor thakle pause, soria gele abar chalu
+    stage.addEventListener("mouseenter", pauseAuto);
+    stage.addEventListener("mouseleave", resumeAuto);
+
+    // Mouse drag (left/right e tene poster bodlano)
+    stage.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      dragStartX = e.clientX;
+    });
+    window.addEventListener("pointerup", (e) => {
+      if (dragStartX === null) return;
+      const diff = e.clientX - dragStartX;
+      dragStartX = null;
+      if (Math.abs(diff) > 60) {
+        justDragged = true;
+        setTimeout(() => { justDragged = false; }, 80);
+        diff < 0 ? next() : prev();
+      }
+    });
+
+    // Mobile touch: angul rakhle pause, swipe korle poster bodlay
+    let touchStartX = 0;
+    stage.addEventListener("touchstart", (e) => {
+      touchStartX = e.touches[0].clientX;
+      pauseAuto();
+    }, { passive: true });
+
+    stage.addEventListener("touchend", (e) => {
+      const diff = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(diff) > 50) {
+        diff < 0 ? next() : prev();
+      }
+      resumeAuto();
+    });
+
+    // Keyboard
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") next();
+      if (e.key === "ArrowLeft")  prev();
+      if (e.key === "Escape" && lightboxOpen) closeLightbox();
+    });
+
+    // ================== 10) START ==================
+    render();
+    startTimer();
+  </script>
+</body>
+</html>
